@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Categories - Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="logo">⚡ ElectroStore Admin</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="categories.html">Categories</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="userMenu">
+                    <span>Admin: <strong id="username"></strong></span>
+                    <a href="../index.html" class="btn btn-outline btn-sm">Store Front</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h1>Manage Categories</h1>
+            <button onclick="showCategoryModal()" class="btn btn-primary">+ Add Category</button>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Category Name</th>
+                                <th>Description</th>
+                                <th>Product Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center;">
+                                    <div class="spinner"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="../js/app.js"></script>
+    <script>
+        // Check if user is admin
+        checkSession().then(() => {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Access denied. Admin privileges required.');
+                window.location.href = '../index.html';
+            } else {
+                loadCategories();
+            }
+        });
+        
+        async function loadCategories() {
+            const tbody = document.getElementById('categoriesBody');
+            const result = await fetchCategories();
+            
+            if (result.success && result.categories.length > 0) {
+                tbody.innerHTML = result.categories.map(category => `
+                    <tr>
+                        <td>${category.category_id}</td>
+                        <td><strong>${category.category_name}</strong></td>
+                        <td>${category.description || '-'}</td>
+                        <td>${category.product_count}</td>
+                        <td>
+                            <button onclick="editCategory(${category.category_id})" class="btn btn-sm btn-outline">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No categories found</td></tr>';
+            }
+        }
+        
+        function showCategoryModal(categoryId = null) {
+            const isEdit = categoryId !== null;
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>${isEdit ? 'Edit Category' : 'Add New Category'}</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <form id="categoryForm">
+                        <input type="hidden" id="category_id" value="${categoryId || ''}">
+                        
+                        <div class="form-group">
+                            <label>Category Name *</label>
+                            <input type="text" id="category_name" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="description" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            ${isEdit ? 'Update Category' : 'Create Category'}
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Load category data if editing
+            if (isEdit) {
+                fetchCategories().then(result => {
+                    if (result.success) {
+                        const cat = result.categories.find(c => c.category_id === categoryId);
+                        if (cat) {
+                            document.getElementById('category_name').value = cat.category_name;
+                            document.getElementById('description').value = cat.description || '';
+                        }
+                    }
+                });
+            }
+            
+            document.getElementById('categoryForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const categoryData = {
+                    category_name: document.getElementById('category_name').value,
+                    description: document.getElementById('description').value
+                };
+                
+                if (isEdit) {
+                    categoryData.category_id = parseInt(categoryId);
+                }
+                
+                const url = API_URL + 'categories.php';
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(categoryData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showAlert(result.message, 'success');
+                        modal.remove();
+                        loadCategories();
+                    } else {
+                        showAlert(result.message, 'error');
+                    }
+                } catch (error) {
+                    showAlert('An error occurred', 'error');
+                }
+            });
+        }
+        
+        function editCategory(categoryId) {
+            showCategoryModal(categoryId);
+        }
+    </script>
+</body>
+</html>

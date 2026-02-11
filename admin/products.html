@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Products - Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="logo">⚡ ElectroStore Admin</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="categories.html">Categories</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="userMenu">
+                    <span>Admin: <strong id="username"></strong></span>
+                    <a href="../index.html" class="btn btn-outline btn-sm">Store Front</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h1>Manage Products</h1>
+            <button onclick="showProductModal()" class="btn btn-primary">+ Add Product</button>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-container">
+                    <table id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsBody">
+                            <tr>
+                                <td colspan="8" style="text-align: center;">
+                                    <div class="spinner"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="../js/app.js"></script>
+    <script>
+        let categories = [];
+        
+        // Check if user is admin
+        checkSession().then(() => {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Access denied. Admin privileges required.');
+                window.location.href = '../index.html';
+            } else {
+                loadCategories();
+                loadProducts();
+            }
+        });
+        
+        async function loadCategories() {
+            const result = await fetchCategories();
+            if (result.success) {
+                categories = result.categories;
+            }
+        }
+        
+        async function loadProducts() {
+            const tbody = document.getElementById('productsBody');
+            const result = await fetchProducts();
+            
+            if (result.success && result.products.length > 0) {
+                tbody.innerHTML = result.products.map(product => `
+                    <tr>
+                        <td>${product.product_id}</td>
+                        <td>${product.product_name}</td>
+                        <td>${product.category_name}</td>
+                        <td>${product.brand || '-'}</td>
+                        <td>${formatCurrency(product.price)}</td>
+                        <td>${product.stock_quantity}</td>
+                        <td>
+                            <span class="badge badge-${product.is_active ? 'success' : 'danger'}">
+                                ${product.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="editProduct(${product.product_id})" class="btn btn-sm btn-outline">
+                                Edit
+                            </button>
+                            <button onclick="deleteProductConfirm(${product.product_id})" class="btn btn-sm btn-danger">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No products found</td></tr>';
+            }
+        }
+        
+        function showProductModal(productId = null) {
+            const isEdit = productId !== null;
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>${isEdit ? 'Edit Product' : 'Add New Product'}</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <form id="productForm">
+                        <input type="hidden" id="product_id" value="${productId || ''}">
+                        
+                        <div class="form-group">
+                            <label>Product Name *</label>
+                            <input type="text" id="product_name" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Category *</label>
+                            <select id="category_id" class="form-control" required>
+                                <option value="">Select Category</option>
+                                ${categories.map(cat => `<option value="${cat.category_id}">${cat.category_name}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Brand</label>
+                            <input type="text" id="brand" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Price (TZS) *</label>
+                            <input type="number" id="price" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Stock Quantity *</label>
+                            <input type="number" id="stock_quantity" class="form-control" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="description" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Specifications</label>
+                            <textarea id="specifications" class="form-control" rows="2"></textarea>
+                        </div>
+                        
+                        ${isEdit ? `
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="is_active">
+                                    Active
+                                </label>
+                            </div>
+                        ` : ''}
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            ${isEdit ? 'Update Product' : 'Create Product'}
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Load product data if editing
+            if (isEdit) {
+                fetchProduct(productId).then(result => {
+                    if (result.success) {
+                        const p = result.product;
+                        document.getElementById('product_name').value = p.product_name;
+                        document.getElementById('category_id').value = p.category_id;
+                        document.getElementById('brand').value = p.brand || '';
+                        document.getElementById('price').value = p.price;
+                        document.getElementById('stock_quantity').value = p.stock_quantity;
+                        document.getElementById('description').value = p.description || '';
+                        document.getElementById('specifications').value = p.specifications || '';
+                        document.getElementById('is_active').checked = p.is_active;
+                    }
+                });
+            }
+            
+            document.getElementById('productForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const productData = {
+                    product_name: document.getElementById('product_name').value,
+                    category_id: parseInt(document.getElementById('category_id').value),
+                    brand: document.getElementById('brand').value,
+                    price: parseFloat(document.getElementById('price').value),
+                    stock_quantity: parseInt(document.getElementById('stock_quantity').value),
+                    description: document.getElementById('description').value,
+                    specifications: document.getElementById('specifications').value
+                };
+                
+                if (isEdit) {
+                    productData.product_id = parseInt(productId);
+                    productData.is_active = document.getElementById('is_active').checked ? 1 : 0;
+                }
+                
+                const result = isEdit ? await updateProduct(productData) : await createProduct(productData);
+                
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    modal.remove();
+                    loadProducts();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            });
+        }
+        
+        async function editProduct(productId) {
+            showProductModal(productId);
+        }
+        
+        async function deleteProductConfirm(productId) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                const result = await deleteProduct(productId);
+                
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    loadProducts();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="guestMenu">
+                    <a href="login.html" class="btn btn-outline btn-sm">Login</a>
+                    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+                </div>
+                <div id="userMenu" class="hidden">
+                    <span>Welcome, <strong id="username"></strong></span>
+                    <a href="orders.html" class="btn btn-outline btn-sm">My Orders</a>
+                    <a href="admin/" id="adminLink" class="hidden btn btn-secondary btn-sm">Admin</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1 style="margin-bottom: 2rem;">Browse Products</h1>
+        
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="form-group">
+                    <label for="searchInput">Search</label>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="form-control" 
+                        placeholder="Search products..."
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="categoryFilter">Category</label>
+                    <select id="categoryFilter" class="form-control">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sortFilter">Sort By</label>
+                    <select id="sortFilter" class="form-control">
+                        <option value="product_name:ASC">Name (A-Z)</option>
+                        <option value="product_name:DESC">Name (Z-A)</option>
+                        <option value="price:ASC">Price (Low to High)</option>
+                        <option value="price:DESC">Price (High to Low)</option>
+                        <option value="created_at:DESC">Newest First</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button onclick="applyFilters()" class="btn btn-primary" style="width: 100%;">
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Products Grid -->
+        <div id="productsContainer" class="product-grid">
+            <div class="spinner"></div>
+        </div>
+        
+        <div id="noProducts" class="hidden" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.25rem; color: var(--text-secondary);">
+                No products found matching your criteria.
+            </p>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        let currentFilters = {};
+        
+        // Load categories for filter
+        async function loadCategoryFilter() {
+            const result = await fetchCategories();
+            const categoryFilter = document.getElementById('categoryFilter');
+            
+            if (result.success) {
+                result.categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.category_id;
+                    option.textContent = cat.category_name;
+                    categoryFilter.appendChild(option);
+                });
+                
+                // Check if category is in URL params
+                const urlParams = new URLSearchParams(window.location.search);
+                const categoryParam = urlParams.get('category');
+                if (categoryParam) {
+                    categoryFilter.value = categoryParam;
+                }
+            }
+        }
+        
+        // Apply filters and load products
+        async function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim();
+            const category = document.getElementById('categoryFilter').value;
+            const sortValue = document.getElementById('sortFilter').value;
+            const [sortBy, order] = sortValue.split(':');
+            
+            currentFilters = {};
+            
+            if (search) currentFilters.search = search;
+            if (category) currentFilters.category = category;
+            if (sortBy) currentFilters.sort = sortBy;
+            if (order) currentFilters.order = order;
+            
+            await loadProducts();
+        }
+        
+        // Load products
+        async function loadProducts() {
+            const container = document.getElementById('productsContainer');
+            const noProducts = document.getElementById('noProducts');
+            
+            container.innerHTML = '<div class="spinner"></div>';
+            noProducts.classList.add('hidden');
+            
+            const result = await fetchProducts(currentFilters);
+            
+            if (result.success && result.products.length > 0) {
+                container.innerHTML = result.products.map(product => `
+                    <div class="product-card">
+                        <div class="product-image">📱</div>
+                        <div class="product-info">
+                            <div class="product-brand">${product.brand || 'Electronics'}</div>
+                            <h3 class="product-name">${product.product_name}</h3>
+                            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                ${product.category_name}
+                            </p>
+                            <div class="product-rating">
+                                <span class="stars">${generateStars(product.avg_rating)}</span>
+                                <span style="font-size: 0.875rem; color: var(--text-secondary);">
+                                    (${product.review_count})
+                                </span>
+                            </div>
+                            <div class="product-price">${formatCurrency(product.price)}</div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a href="product-detail.html?id=${product.product_id}" class="btn btn-outline btn-sm" style="flex: 1;">
+                                    Details
+                                </a>
+                                <button onclick="addToCart(${product.product_id})" class="btn btn-primary btn-sm">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '';
+                noProducts.classList.remove('hidden');
+            }
+        }
+        
+        // Add to cart
+        async function addToCart(productId) {
+            const result = await fetchProduct(productId);
+            if (result.success) {
+                Cart.addItem(result.product, 1);
+                showAlert('Product added to cart!', 'success');
+            }
+        }
+        
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+        
+        // Initialize
+        Cart.updateCartCount();
+        loadCategoryFilter();
+        applyFilters();
+    </script>
+</body>
+</html>

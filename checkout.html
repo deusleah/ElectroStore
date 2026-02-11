@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="userMenu">
+                    <span>Welcome, <strong id="username"></strong></span>
+                    <a href="orders.html" class="btn btn-outline btn-sm">My Orders</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1>Checkout</h1>
+        
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-top: 2rem;">
+            <div>
+                <!-- Shipping Address -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card-header">
+                        <h3>Shipping Address</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="addressContainer">
+                            <div class="spinner"></div>
+                        </div>
+                        
+                        <button onclick="showAddressModal()" class="btn btn-outline mt-2">
+                            + Add New Address
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Payment Method -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Payment Method</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>
+                                <input type="radio" name="payment" value="cash_on_delivery" checked>
+                                Cash on Delivery
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="radio" name="payment" value="mobile_money">
+                                Mobile Money (M-Pesa, Tigo Pesa)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="radio" name="payment" value="bank_transfer">
+                                Bank Transfer
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order Summary -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Order Summary</h3>
+                    </div>
+                    <div class="card-body" id="orderSummary">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        let selectedAddressId = null;
+        let addresses = [];
+        
+        // Check if user is logged in
+        if (!currentUser) {
+            window.location.href = 'login.html';
+        }
+        
+        // Check if cart is empty
+        const cart = Cart.getCart();
+        if (cart.length === 0) {
+            window.location.href = 'cart.html';
+        }
+        
+        async function loadAddresses() {
+            const result = await fetchAddresses();
+            const container = document.getElementById('addressContainer');
+            
+            if (result.success && result.addresses.length > 0) {
+                addresses = result.addresses;
+                selectedAddressId = result.addresses.find(a => a.is_default)?.address_id || result.addresses[0].address_id;
+                
+                container.innerHTML = result.addresses.map(addr => `
+                    <div class="form-group">
+                        <label style="display: flex; padding: 1rem; border: 2px solid ${addr.address_id === selectedAddressId ? 'var(--primary-color)' : 'var(--border-color)'}; border-radius: 0.5rem; cursor: pointer;">
+                            <input 
+                                type="radio" 
+                                name="address" 
+                                value="${addr.address_id}"
+                                ${addr.address_id === selectedAddressId ? 'checked' : ''}
+                                onchange="selectedAddressId = ${addr.address_id}; loadAddresses();"
+                                style="margin-right: 1rem;"
+                            >
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                                    ${addr.address_line1}
+                                    ${addr.is_default ? '<span class="badge badge-info">Default</span>' : ''}
+                                </div>
+                                <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                                    ${addr.city}, ${addr.state} ${addr.postal_code}
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p style="color: var(--text-secondary);">No addresses found. Please add one.</p>';
+            }
+        }
+        
+        function showAddressModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add New Address</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <form id="addressForm">
+                        <div class="form-group">
+                            <label>Address Line 1 *</label>
+                            <input type="text" id="address_line1" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Address Line 2</label>
+                            <input type="text" id="address_line2" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>City *</label>
+                            <input type="text" id="city" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>State *</label>
+                            <input type="text" id="state" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Postal Code *</label>
+                            <input type="text" id="postal_code" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="is_default">
+                                Set as default address
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Save Address
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            document.getElementById('addressForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const addressData = {
+                    address_line1: document.getElementById('address_line1').value,
+                    address_line2: document.getElementById('address_line2').value,
+                    city: document.getElementById('city').value,
+                    state: document.getElementById('state').value,
+                    postal_code: document.getElementById('postal_code').value,
+                    is_default: document.getElementById('is_default').checked ? 1 : 0
+                };
+                
+                const result = await createAddress(addressData);
+                
+                if (result.success) {
+                    showAlert('Address added successfully!', 'success');
+                    modal.remove();
+                    loadAddresses();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            });
+        }
+        
+        function loadOrderSummary() {
+            const cart = Cart.getCart();
+            const total = Cart.getTotal();
+            const summaryContainer = document.getElementById('orderSummary');
+            
+            summaryContainer.innerHTML = `
+                <div style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;">
+                    ${cart.map(item => `
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                            <div>
+                                <div style="font-weight: 500;">${item.product_name}</div>
+                                <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                                    Qty: ${item.quantity}
+                                </div>
+                            </div>
+                            <div style="font-weight: 600;">
+                                ${formatCurrency(item.price * item.quantity)}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="padding-top: 1rem; border-top: 2px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Subtotal:</span>
+                        <strong>${formatCurrency(total)}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>Shipping:</span>
+                        <strong>Free</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.25rem; margin-bottom: 1.5rem;">
+                        <strong>Total:</strong>
+                        <strong style="color: var(--primary-color);">${formatCurrency(total)}</strong>
+                    </div>
+                    
+                    <button onclick="placeOrder()" class="btn btn-primary" style="width: 100%;">
+                        Place Order
+                    </button>
+                </div>
+            `;
+        }
+        
+        async function placeOrder() {
+            if (!selectedAddressId) {
+                showAlert('Please select a shipping address', 'error');
+                return;
+            }
+            
+            const cart = Cart.getCart();
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+            
+            const orderData = {
+                address_id: selectedAddressId,
+                payment_method: paymentMethod,
+                items: cart.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity
+                }))
+            };
+            
+            const result = await createOrder(orderData);
+            
+            if (result.success) {
+                Cart.clear();
+                showAlert('Order placed successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = 'orders.html';
+                }, 1500);
+            } else {
+                showAlert(result.message, 'error');
+            }
+        }
+        
+        Cart.updateCartCount();
+        loadAddresses();
+        loadOrderSummary();
+    </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div style="max-width: 500px; margin: 3rem auto;">
+            <div class="card">
+                <div class="card-header">
+                    <h2 style="text-align: center;">Login to Your Account</h2>
+                </div>
+                <div class="card-body">
+                    <div id="alertContainer"></div>
+                    
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="username">Username or Email</label>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                name="username" 
+                                class="form-control" 
+                                required
+                            >
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                class="form-control" 
+                                required
+                            >
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Login
+                        </button>
+                    </form>
+                    
+                    <p style="text-align: center; margin-top: 1.5rem;">
+                        Don't have an account? 
+                        <a href="register.html" style="color: var(--primary-color);">Register here</a>
+                    </p>
+                    
+                    <div style="background: var(--light-bg); padding: 1rem; border-radius: 0.5rem; margin-top: 1.5rem;">
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Test Accounts:</p>
+                        <p style="font-size: 0.875rem; margin: 0.25rem 0;">
+                            <strong>Admin:</strong> admin / admin123
+                        </p>
+                        <p style="font-size: 0.875rem; margin: 0.25rem 0;">
+                            <strong>Customer:</strong> leah / leah123
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const alertContainer = document.getElementById('alertContainer');
+        
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Validation
+            if (!username || !password) {
+                showLocalAlert('Please fill in all fields', 'error');
+                return;
+            }
+            
+            // Login
+            const result = await login(username, password);
+            
+            if (result.success) {
+                showLocalAlert(result.message, 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+            } else {
+                showLocalAlert(result.message, 'error');
+            }
+        });
+        
+        function showLocalAlert(message, type) {
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        // Redirect if already logged in
+        checkSession().then(() => {
+            if (currentUser) {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>

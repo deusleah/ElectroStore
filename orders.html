@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="userMenu">
+                    <span>Welcome, <strong id="username"></strong></span>
+                    <a href="orders.html" class="btn btn-outline btn-sm">My Orders</a>
+                    <a href="admin/" id="adminLink" class="hidden btn btn-secondary btn-sm">Admin</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1>My Orders</h1>
+        
+        <div id="ordersContainer" style="margin-top: 2rem;">
+            <div class="spinner"></div>
+        </div>
+        
+        <div id="noOrders" class="hidden" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 2rem;">
+                You haven't placed any orders yet
+            </p>
+            <a href="products.html" class="btn btn-primary">Start Shopping</a>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Check if user is logged in
+        if (!currentUser) {
+            window.location.href = 'login.html';
+        }
+        
+        async function loadOrders() {
+            const container = document.getElementById('ordersContainer');
+            const noOrders = document.getElementById('noOrders');
+            
+            const result = await fetchOrders();
+            
+            if (result.success && result.orders.length > 0) {
+                noOrders.classList.add('hidden');
+                
+                container.innerHTML = result.orders.map(order => {
+                    const statusColors = {
+                        'pending': 'warning',
+                        'processing': 'info',
+                        'shipped': 'info',
+                        'delivered': 'success',
+                        'cancelled': 'danger'
+                    };
+                    
+                    const statusColor = statusColors[order.status] || 'info';
+                    
+                    return `
+                        <div class="card" style="margin-bottom: 1.5rem;">
+                            <div class="card-header">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h3>Order #${order.order_id}</h3>
+                                        <p style="color: var(--text-secondary); margin: 0.25rem 0;">
+                                            Placed on ${formatDate(order.order_date)}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span class="badge badge-${statusColor}">
+                                            ${order.status.toUpperCase()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                ${order.items.map(item => `
+                                    <div style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
+                                        <div class="product-image" style="width: 80px; height: 80px; flex-shrink: 0;">
+                                            📱
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <h4 style="margin-bottom: 0.5rem;">${item.product_name}</h4>
+                                            <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                                                Quantity: ${item.quantity} × ${formatCurrency(item.price_at_purchase)}
+                                            </p>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <p style="font-weight: 600; color: var(--primary-color);">
+                                                ${formatCurrency(item.subtotal)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                
+                                <div style="padding-top: 1rem;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                        <span>Payment Method:</span>
+                                        <strong>${order.payment_method.replace('_', ' ').toUpperCase()}</strong>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                        <span>Payment Status:</span>
+                                        <span class="badge badge-${order.payment_status === 'paid' ? 'success' : 'warning'}">
+                                            ${order.payment_status.toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 1.125rem; padding-top: 0.5rem; border-top: 2px solid var(--border-color);">
+                                        <strong>Total:</strong>
+                                        <strong style="color: var(--primary-color);">
+                                            ${formatCurrency(order.total_amount)}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">
+                                    <strong>Shipping Address:</strong> ${order.address_line1}, ${order.city}, ${order.state}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = '';
+                noOrders.classList.remove('hidden');
+            }
+        }
+        
+        Cart.updateCartCount();
+        loadOrders();
+    </script>
+</body>
+</html>

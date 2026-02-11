@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Orders - Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="logo">⚡ ElectroStore Admin</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="categories.html">Categories</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="userMenu">
+                    <span>Admin: <strong id="username"></strong></span>
+                    <a href="../index.html" class="btn btn-outline btn-sm">Store Front</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1>Manage Orders</h1>
+        
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-body">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Email</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersBody">
+                            <tr>
+                                <td colspan="8" style="text-align: center;">
+                                    <div class="spinner"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="../js/app.js"></script>
+    <script>
+        // Check if user is admin
+        checkSession().then(() => {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Access denied. Admin privileges required.');
+                window.location.href = '../index.html';
+            } else {
+                loadOrders();
+            }
+        });
+        
+        async function loadOrders() {
+            const tbody = document.getElementById('ordersBody');
+            const result = await fetchOrders(null, true);
+            
+            if (result.success && result.orders.length > 0) {
+                const statusColors = {
+                    'pending': 'warning',
+                    'processing': 'info',
+                    'shipped': 'info',
+                    'delivered': 'success',
+                    'cancelled': 'danger'
+                };
+                
+                const paymentColors = {
+                    'pending': 'warning',
+                    'paid': 'success',
+                    'failed': 'danger'
+                };
+                
+                tbody.innerHTML = result.orders.map(order => `
+                    <tr>
+                        <td>#${order.order_id}</td>
+                        <td>${order.full_name}</td>
+                        <td>${order.email}</td>
+                        <td>${formatCurrency(order.total_amount)}</td>
+                        <td>
+                            <span class="badge badge-${statusColors[order.status]}">
+                                ${order.status}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge badge-${paymentColors[order.payment_status]}">
+                                ${order.payment_status}
+                            </span>
+                        </td>
+                        <td>${formatDate(order.order_date)}</td>
+                        <td>
+                            <button onclick="viewOrder(${order.order_id})" class="btn btn-sm btn-outline">
+                                View
+                            </button>
+                            <button onclick="updateOrderStatusModal(${order.order_id}, '${order.status}', '${order.payment_status}')" class="btn btn-sm btn-primary">
+                                Update
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No orders found</td></tr>';
+            }
+        }
+        
+        function viewOrder(orderId) {
+            fetchOrders(orderId).then(result => {
+                if (result.success) {
+                    const order = result.order;
+                    
+                    const modal = document.createElement('div');
+                    modal.className = 'modal active';
+                    
+                    const statusColors = {
+                        'pending': 'warning',
+                        'processing': 'info',
+                        'shipped': 'info',
+                        'delivered': 'success',
+                        'cancelled': 'danger'
+                    };
+                    
+                    modal.innerHTML = `
+                        <div class="modal-content" style="max-width: 700px;">
+                            <div class="modal-header">
+                                <h3>Order #${order.order_id}</h3>
+                                <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                            </div>
+                            
+                            <div style="padding: 1.5rem;">
+                                <div style="background: var(--light-bg); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                                    <p style="margin: 0.5rem 0;"><strong>Customer:</strong> ${order.full_name}</p>
+                                    <p style="margin: 0.5rem 0;"><strong>Email:</strong> ${order.email}</p>
+                                    <p style="margin: 0.5rem 0;"><strong>Phone:</strong> ${order.username}</p>
+                                    <p style="margin: 0.5rem 0;">
+                                        <strong>Shipping Address:</strong><br>
+                                        ${order.address_line1}<br>
+                                        ${order.address_line2 ? order.address_line2 + '<br>' : ''}
+                                        ${order.city}, ${order.state} ${order.postal_code}
+                                    </p>
+                                    <p style="margin: 0.5rem 0;">
+                                        <strong>Status:</strong> 
+                                        <span class="badge badge-${statusColors[order.status]}">${order.status}</span>
+                                    </p>
+                                    <p style="margin: 0.5rem 0;">
+                                        <strong>Payment Method:</strong> ${order.payment_method.replace('_', ' ').toUpperCase()}
+                                    </p>
+                                    <p style="margin: 0.5rem 0;">
+                                        <strong>Order Date:</strong> ${formatDate(order.order_date)}
+                                    </p>
+                                </div>
+                                
+                                <h4 style="margin-bottom: 1rem;">Order Items</h4>
+                                ${order.items.map(item => `
+                                    <div style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
+                                        <div style="flex: 1;">
+                                            <strong>${item.product_name}</strong>
+                                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0.25rem 0;">
+                                                ${item.quantity} × ${formatCurrency(item.price_at_purchase)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <strong>${formatCurrency(item.subtotal)}</strong>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                
+                                <div style="text-align: right; padding-top: 1rem; margin-top: 1rem; border-top: 2px solid var(--border-color);">
+                                    <p style="font-size: 1.25rem;">
+                                        <strong>Total:</strong> 
+                                        <strong style="color: var(--primary-color);">${formatCurrency(order.total_amount)}</strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                }
+            });
+        }
+        
+        function updateOrderStatusModal(orderId, currentStatus, currentPaymentStatus) {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Update Order #${orderId}</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <form id="updateOrderForm">
+                        <div class="form-group">
+                            <label>Order Status</label>
+                            <select id="orderStatus" class="form-control">
+                                <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="processing" ${currentStatus === 'processing' ? 'selected' : ''}>Processing</option>
+                                <option value="shipped" ${currentStatus === 'shipped' ? 'selected' : ''}>Shipped</option>
+                                <option value="delivered" ${currentStatus === 'delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Payment Status</label>
+                            <select id="paymentStatus" class="form-control">
+                                <option value="pending" ${currentPaymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="paid" ${currentPaymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="failed" ${currentPaymentStatus === 'failed' ? 'selected' : ''}>Failed</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Update Order
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            document.getElementById('updateOrderForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const status = document.getElementById('orderStatus').value;
+                const paymentStatus = document.getElementById('paymentStatus').value;
+                
+                const result = await updateOrderStatus(orderId, status, paymentStatus);
+                
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    modal.remove();
+                    loadOrders();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

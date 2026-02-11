@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="guestMenu">
+                    <a href="login.html" class="btn btn-outline btn-sm">Login</a>
+                    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+                </div>
+                <div id="userMenu" class="hidden">
+                    <span>Welcome, <strong id="username"></strong></span>
+                    <a href="orders.html" class="btn btn-outline btn-sm">My Orders</a>
+                    <a href="admin/" id="adminLink" class="hidden btn btn-secondary btn-sm">Admin</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div id="productContainer">
+            <div class="spinner"></div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+        
+        async function loadProductDetails() {
+            if (!productId) {
+                window.location.href = 'products.html';
+                return;
+            }
+            
+            const container = document.getElementById('productContainer');
+            const result = await fetchProduct(productId);
+            
+            if (!result.success) {
+                container.innerHTML = '<p>Product not found</p>';
+                return;
+            }
+            
+            const product = result.product;
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-bottom: 3rem;">
+                    <div>
+                        <div class="product-image" style="height: 400px; font-size: 8rem; border-radius: 0.75rem;">
+                            📱
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="product-brand" style="font-size: 1rem;">${product.brand || 'Electronics'}</div>
+                        <h1 style="margin: 0.5rem 0 1rem;">${product.product_name}</h1>
+                        
+                        <div class="product-rating" style="margin-bottom: 1rem;">
+                            <span class="stars" style="font-size: 1.5rem;">${generateStars(product.avg_rating)}</span>
+                            <span style="font-size: 1rem;">
+                                ${product.avg_rating.toFixed(1)} (${product.review_count} reviews)
+                            </span>
+                        </div>
+                        
+                        <div class="product-price" style="font-size: 2rem; margin-bottom: 1.5rem;">
+                            ${formatCurrency(product.price)}
+                        </div>
+                        
+                        <div style="background: var(--light-bg); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                            <p style="margin: 0.5rem 0;">
+                                <strong>Category:</strong> ${product.category_name}
+                            </p>
+                            <p style="margin: 0.5rem 0;">
+                                <strong>Stock:</strong> 
+                                <span style="color: ${product.stock_quantity > 0 ? 'var(--secondary-color)' : 'var(--danger-color)'};">
+                                    ${product.stock_quantity > 0 ? product.stock_quantity + ' available' : 'Out of stock'}
+                                </span>
+                            </p>
+                            ${product.specifications ? `
+                                <p style="margin: 0.5rem 0;">
+                                    <strong>Specifications:</strong> ${product.specifications}
+                                </p>
+                            ` : ''}
+                        </div>
+                        
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="quantity" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                                Quantity:
+                            </label>
+                            <input 
+                                type="number" 
+                                id="quantity" 
+                                value="1" 
+                                min="1" 
+                                max="${product.stock_quantity}"
+                                class="form-control" 
+                                style="width: 120px;"
+                                ${product.stock_quantity === 0 ? 'disabled' : ''}
+                            >
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem;">
+                            <button 
+                                onclick="addToCart()" 
+                                class="btn btn-primary" 
+                                style="flex: 1;"
+                                ${product.stock_quantity === 0 ? 'disabled' : ''}
+                            >
+                                Add to Cart
+                            </button>
+                            <a href="products.html" class="btn btn-outline">
+                                Continue Shopping
+                            </a>
+                        </div>
+                        
+                        ${currentUser ? `
+                            <button onclick="showReviewModal()" class="btn btn-secondary mt-2" style="width: 100%;">
+                                Write a Review
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card-header">
+                        <h2>Description</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>${product.description || 'No description available.'}</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Customer Reviews (${product.review_count})</h2>
+                    </div>
+                    <div class="card-body">
+                        ${product.reviews && product.reviews.length > 0 ? 
+                            product.reviews.map(review => `
+                                <div style="border-bottom: 1px solid var(--border-color); padding: 1rem 0;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                        <div>
+                                            <strong>${review.full_name}</strong>
+                                            <div class="stars" style="color: #fbbf24; margin-top: 0.25rem;">
+                                                ${generateStars(review.rating)}
+                                            </div>
+                                        </div>
+                                        <small style="color: var(--text-secondary);">
+                                            ${formatDate(review.created_at)}
+                                        </small>
+                                    </div>
+                                    <p style="margin: 0;">${review.comment || 'No comment provided.'}</p>
+                                </div>
+                            `).join('') 
+                            : '<p style="color: var(--text-secondary);">No reviews yet. Be the first to review!</p>'
+                        }
+                    </div>
+                </div>
+            `;
+        }
+        
+        function addToCart() {
+            const quantity = parseInt(document.getElementById('quantity').value);
+            
+            fetchProduct(productId).then(result => {
+                if (result.success) {
+                    Cart.addItem(result.product, quantity);
+                    showAlert(`Added ${quantity} item(s) to cart!`, 'success');
+                }
+            });
+        }
+        
+        function showReviewModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Write a Review</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <form id="reviewForm">
+                        <div class="form-group">
+                            <label>Rating</label>
+                            <select id="rating" class="form-control" required>
+                                <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                                <option value="4">⭐⭐⭐⭐ Good</option>
+                                <option value="3">⭐⭐⭐ Average</option>
+                                <option value="2">⭐⭐ Poor</option>
+                                <option value="1">⭐ Terrible</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Comment</label>
+                            <textarea id="comment" class="form-control" rows="4"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Submit Review
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            document.getElementById('reviewForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const rating = document.getElementById('rating').value;
+                const comment = document.getElementById('comment').value;
+                
+                const result = await submitReview({
+                    product_id: productId,
+                    rating: rating,
+                    comment: comment
+                });
+                
+                if (result.success) {
+                    showAlert('Review submitted successfully!', 'success');
+                    modal.remove();
+                    loadProductDetails();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            });
+        }
+        
+        Cart.updateCartCount();
+        loadProductDetails();
+    </script>
+</body>
+</html>

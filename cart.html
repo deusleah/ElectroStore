@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - Electronics Store</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="logo">⚡ ElectroStore</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li>
+            </ul>
+            <div class="user-menu">
+                <div id="guestMenu">
+                    <a href="login.html" class="btn btn-outline btn-sm">Login</a>
+                    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+                </div>
+                <div id="userMenu" class="hidden">
+                    <span>Welcome, <strong id="username"></strong></span>
+                    <a href="orders.html" class="btn btn-outline btn-sm">My Orders</a>
+                    <a href="admin/" id="adminLink" class="hidden btn btn-secondary btn-sm">Admin</a>
+                    <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1>Shopping Cart</h1>
+        
+        <div id="cartContainer" style="margin-top: 2rem;">
+            <!-- Cart items will be loaded here -->
+        </div>
+        
+        <div id="emptyCart" class="hidden" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 2rem;">
+                Your cart is empty
+            </p>
+            <a href="products.html" class="btn btn-primary">Continue Shopping</a>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 ElectroStore. All rights reserved.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        function loadCart() {
+            const cart = Cart.getCart();
+            const container = document.getElementById('cartContainer');
+            const emptyCart = document.getElementById('emptyCart');
+            
+            if (cart.length === 0) {
+                container.innerHTML = '';
+                emptyCart.classList.remove('hidden');
+                return;
+            }
+            
+            emptyCart.classList.add('hidden');
+            
+            const total = Cart.getTotal();
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                    <div>
+                        <div class="card">
+                            <div class="card-body">
+                                ${cart.map(item => `
+                                    <div style="display: flex; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid var(--border-color);">
+                                        <div class="product-image" style="width: 100px; height: 100px; flex-shrink: 0;">
+                                            📱
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <h3 style="margin-bottom: 0.5rem;">${item.product_name}</h3>
+                                            <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                                ${formatCurrency(item.price)} each
+                                            </p>
+                                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                                <div>
+                                                    <label style="font-size: 0.875rem; margin-right: 0.5rem;">Qty:</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value="${item.quantity}" 
+                                                        min="1" 
+                                                        class="form-control" 
+                                                        style="width: 80px; display: inline-block;"
+                                                        onchange="updateQuantity(${item.product_id}, this.value)"
+                                                    >
+                                                </div>
+                                                <button 
+                                                    onclick="removeFromCart(${item.product_id})" 
+                                                    class="btn btn-danger btn-sm"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <p style="font-size: 1.25rem; font-weight: 600; color: var(--primary-color);">
+                                                ${formatCurrency(item.price * item.quantity)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Order Summary</h3>
+                            </div>
+                            <div class="card-body">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                                    <span>Subtotal:</span>
+                                    <strong>${formatCurrency(total)}</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border-color);">
+                                    <span>Shipping:</span>
+                                    <strong>Free</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 1.25rem; margin-bottom: 1.5rem;">
+                                    <strong>Total:</strong>
+                                    <strong style="color: var(--primary-color);">${formatCurrency(total)}</strong>
+                                </div>
+                                
+                                ${currentUser ? `
+                                    <a href="checkout.html" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
+                                        Proceed to Checkout
+                                    </a>
+                                ` : `
+                                    <div style="background: var(--light-bg); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; text-align: center;">
+                                        <p style="margin-bottom: 0.5rem;">Please login to checkout</p>
+                                        <a href="login.html" class="btn btn-primary btn-sm">Login</a>
+                                    </div>
+                                `}
+                                
+                                <a href="products.html" class="btn btn-outline" style="width: 100%;">
+                                    Continue Shopping
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateQuantity(productId, quantity) {
+            Cart.updateQuantity(productId, parseInt(quantity));
+            loadCart();
+        }
+        
+        function removeFromCart(productId) {
+            if (confirm('Remove this item from cart?')) {
+                Cart.removeItem(productId);
+                loadCart();
+                showAlert('Item removed from cart', 'info');
+            }
+        }
+        
+        Cart.updateCartCount();
+        loadCart();
+    </script>
+</body>
+</html>
